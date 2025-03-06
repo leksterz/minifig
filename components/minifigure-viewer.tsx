@@ -1,55 +1,48 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { Suspense, useRef, useState } from "react"
 import { Canvas } from "@react-three/fiber"
-import { OrbitControls, PerspectiveCamera, Environment } from "@react-three/drei"
-import { MinifigureModel } from "@/components/minifigure-model"
+import { OrbitControls } from "@react-three/drei"
+import { MinifigureModel } from "./minifigure-model"
 import { Button } from "@/components/ui/button"
-import { RotateCw, ZoomIn, ZoomOut } from "lucide-react"
-import type { MinifigurePart, Layer } from "@/components/minifigure-designer"
-import { Suspense } from "react";
-
+import { ZoomIn, ZoomOut, RotateCw } from "lucide-react"
+import type { MinifigurePart } from "@/components/minifigure-designer"
 
 interface MinifigureViewerProps {
   selectedPart: MinifigurePart
   setSelectedPart: (part: MinifigurePart) => void
-  layers: Layer[]
 }
 
-export function MinifigureViewer({ selectedPart, setSelectedPart, layers }: MinifigureViewerProps) {
+export function MinifigureViewer({ selectedPart, setSelectedPart }: MinifigureViewerProps) {
   const controlsRef = useRef(null)
   const [zoom, setZoom] = useState(5)
 
-  const handleZoomIn = () => {
-    setZoom(Math.max(zoom - 0.5, 2))
+  // State for cycling the legs texture index
+  const [textureIndex, setTextureIndex] = useState(0)
+  const handleNextTexture = () => {
+    setTextureIndex((prev) => prev + 1)
   }
 
-  const handleZoomOut = () => {
-    setZoom(Math.min(zoom + 0.5, 10))
-  }
-
-  const handleReset = () => {
-    if (controlsRef.current) {
-      controlsRef.current.reset()
-    }
-    setZoom(5)
-  }
+  const handleZoomIn = () => setZoom(Math.max(zoom - 0.5, 2))
+  const handleZoomOut = () => setZoom(Math.min(zoom + 0.5, 10))
+  const handleReset = () => controlsRef.current?.reset()
 
   return (
     <div className="relative h-[50vh] lg:h-screen">
-        <Canvas>
+      {/* Our 3D scene: */}
+      <Canvas shadows camera={{ position: [0, 2, 5], fov: 50 }}>
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[5, 5, 5]} intensity={1} castShadow />
         <Suspense fallback={null}>
-            <ambientLight intensity={0.5} />
-            <directionalLight position={[5, 5, 5]} intensity={1} />
+          {/* The minifigure model picks which part to show, 
+              and if that part is "legs", we pass textureIndex */}
+          <MinifigureModel selectedPart={selectedPart} textureIndex={textureIndex} />
 
-            <mesh>
-            <boxGeometry />
-            <meshStandardMaterial color="red" />
-            </mesh>
-            <OrbitControls />
+          <OrbitControls ref={controlsRef} />
         </Suspense>
-        </Canvas>
-      {/* Controls Overlay */}
+      </Canvas>
+
+      {/* Some overlay UI (zoom / reset): */}
       <div className="absolute bottom-4 right-4 flex flex-col gap-2">
         <Button variant="secondary" size="icon" onClick={handleZoomIn}>
           <ZoomIn className="h-4 w-4" />
@@ -62,7 +55,7 @@ export function MinifigureViewer({ selectedPart, setSelectedPart, layers }: Mini
         </Button>
       </div>
 
-      {/* Part Selection Overlay */}
+      {/* Part selection UI (head, torso, or legs) */}
       <div className="absolute top-4 left-4 bg-background/80 p-2 rounded-md">
         <h3 className="text-sm font-medium mb-2">Select Part:</h3>
         <div className="flex flex-col gap-1">
@@ -83,22 +76,6 @@ export function MinifigureViewer({ selectedPart, setSelectedPart, layers }: Mini
             Torso
           </Button>
           <Button
-            variant={selectedPart === "leftArm" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedPart("leftArm")}
-            className="justify-start"
-          >
-            Left Arm
-          </Button>
-          <Button
-            variant={selectedPart === "rightArm" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedPart("rightArm")}
-            className="justify-start"
-          >
-            Right Arm
-          </Button>
-          <Button
             variant={selectedPart === "legs" ? "default" : "outline"}
             size="sm"
             onClick={() => setSelectedPart("legs")}
@@ -107,8 +84,14 @@ export function MinifigureViewer({ selectedPart, setSelectedPart, layers }: Mini
             Legs
           </Button>
         </div>
+
+        {/* If the user selects "legs," show a "Next Texture" button below */}
+        {selectedPart === "legs" && (
+          <Button variant="secondary" size="sm" onClick={handleNextTexture} className="mt-2">
+            Next Texture
+          </Button>
+        )}
       </div>
     </div>
   )
 }
-
